@@ -11,33 +11,3 @@ READ_STREAM.on('data', chunk => {
 })
 
 READ_STREAM.on('end', () => console.log(fileText));
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// const fs = require('fs');
-// const path = require('path');
-
-// const PATH = path.join(__dirname, 'text.txt');
-// const readStream = fs.createReadStream(PATH, 'utf-8');
-
-// let data = '';
-
-// readStream.on('data', chunk => {
-//   console.log(chunk);
-//   data += chunk;
-// });
-// readStream.on('end', () => console.log(data));
