@@ -1,105 +1,131 @@
-const fs = require('fs');
 const path = require('path');
+const fs =  require('fs');
 
-const templatePath= path.join(__dirname, 'template.html');
+let template_data = '';
 
-let templateStream = fs.createReadStream(templatePath, 'utf-8');
-let content = '';
-
-templateStream.on('data', chunk => {
-  content += chunk;
-})
-
+const templateStream = fs.createReadStream(path.join(__dirname, 'template.html'), 'utf-8');
+templateStream.on('data', chunk => template_data += chunk);
+templateStream.on('error', err => console.log(err.message));
 templateStream.on('end', () => {
   fs.mkdir(path.join(__dirname, 'project-dist'), err => {
     if (err) {
-      fs.rmdir(path.join(__dirname, 'project-dist'), {recursive: true}, () => {
+      fs.rmdir(path.join(__dirname, 'project-dist'), () => {
         fs.mkdir(path.join(__dirname, 'project-dist'), () => {
-          copyHtml();
-          bundleCss();
-          copyAssets();
+          readTemplate();
+          readCss();
+          readAssets();
         })
-      });
+      })
     }
-    copyHtml();
-    bundleCss();
-    copyAssets();
+    else {
+      readTemplate();
+      readCss();
+      readAssets();
+    }
   })
 })
 
-const copyHtml = () => {
-  let splitted = content.split('\r\n');
-  for (let i in splitted) {
-    if (splitted[i].includes('{')) {
-      let tag = splitted[i].split(/{{(.*?)}}/);
+const readTemplate = () => {
+  let lines = template_data.split('\r\n');
+  for (let i in lines) {
+    if (lines[i].includes('{')) {
+      let tag = lines[i].split(/{{(.*?)}}/);
       fs.readFile(path.join(__dirname, 'components', `${tag[1]}.html`), 'utf8', (err, data) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-        let tagData = `${data}`;
-        splitted[i] = tagData;
-        let ready = splitted.join('\r\n');
-        fs.writeFile(path.join(__dirname, 'project-dist', 'index.html'), ready, err => {
-          if (err) console.error(err.message);
-        })
-      });   
+        if (err) console.log(err.message);
+        lines[i] = data;
+        editFile(lines);
+      })
     }
   }
 }
 
-const bundleCss = () => {
-  const bundle_path = path.join(__dirname, 'project-dist');
-  const css_path = path.join(__dirname, 'styles');
-  
-  fs.readdir(css_path, (err, files) => {
-    if (err) console.error(err.message);
-    const all_files = files;
-    for (let i in all_files) {
-      if (path.extname(all_files[i]) == '.css') editFile(all_files[i], i);
+const editFile = (lines) => {
+  let file = lines.join('\r\n');
+  fs.writeFile(path.join(__dirname, 'project-dist', 'index.html'), file, err => {
+    if (err) console.log(err.message)
+  })
+}
+
+const readCss = () => {
+  fs.readdir(path.join(__dirname, 'styles'), (err, files) => {
+    if (err) console.log(err.message)
+    for (let i in files) {
+      if (path.extname(files[i]) == '.css') {
+        if (i == 0) {
+          fs.readFile(path.join(__dirname, 'styles', files[i]), 'utf8', (err, data) =>{
+            if (err) console.log(err.message);
+            fs.writeFile(path.join(__dirname, 'project-dist', 'style.css'), data, err => {
+              if (err) console.log(err.message);
+            })
+          })
+        }
+        else {
+          fs.readFile(path.join(__dirname, 'styles', files[i]), 'utf8', (err, data) =>{
+            if (err) console.log(err.message);
+            fs.appendFile(path.join(__dirname, 'project-dist', 'style.css'), data, err => {
+              if (err) console.log(err.message);
+            })
+          })
+        }
+      }
     }
   })
-  
-  const editFile = (fileName, num) => {
-    let data = '';
-    const file_stream = fs.createReadStream(path.join(css_path, fileName), 'utf-8');
-    file_stream.on('data', chunk => {
-      data += chunk;
-    });
-    file_stream.on('end', () => {
-      if (num == 0) fs.writeFile(path.join(bundle_path, 'style.css'), data, err => {
-        if (err) console.error(err.message);
-      })
-      else fs.appendFile(path.join(bundle_path, 'style.css'), data, err => {
-        if (err) console.error(err.message)
-      })
-    });
-  }  
 }
 
-const copyAssets = () => {
-  const fs = require('fs');
-  const path = require('path');
-
-  fs.mkdir(path.join(__dirname, 'project-dist', 'assets'), (err) => {
+const readAssets = () => {
+  fs.mkdir(path.join(__dirname, 'project-dist', 'assets'), err => {
     if (err) {
-      fs.rmdir(path.join(__dirname, 'project-dist', 'assets'), {recursive: true}, err_0 => {
-        if (err_0) console.error(err_0.message);
-        fs.mkdir(path.join(__dirname, 'project-dist', 'assets'), err_1 => {
-          if (err_1) console.error(err_1.message);
+      fs.rmdir(path.join(__dirname, 'project-dist', 'assets'), { recursive: true },() => {
+        fs.mkdir(path.join(__dirname, 'project-dist', 'assets'), () => {
           copyFiles();
         })
-      });
+      })
     }
-    copyFiles();
-  });
+    else copyFiles();
+  })
+}
 
-  const copyFiles = () => {
-    fs.readdir(path.join(__dirname, 'assets'), (err, files) => {
-      if (err) console.error(err.message);
-      files.forEach(file => fs.copyFile(path.join(__dirname, 'assets', file), path.join(__dirname, 'project-dist', 'assets', file), err => {
-        if (err) console.error(err.message);
-      }));
-    })
-  }
+const copyFiles = () => {
+  fs.readdir(path.join(__dirname, 'assets'), (err, files) => {
+    if (err) console.log(err.message);
+    for (let i in files) {
+      fs.stat(path.join(__dirname, 'assets', files[i]), (err, stat) => {
+        if (err) console.log(err.message);
+        if (stat.isDirectory()) copyAssetsDirectory(files[i]);
+        else if (stat.isFile()) copyAssetsFile(path.join(__dirname, 'project-dist', 'assets', files[i]), path.join(__dirname, 'assets', files[i]));
+      })
+    }
+  })
+}
+
+const copyAssetsDirectory = (dir) => {
+  fs.mkdir(path.join(__dirname, 'project-dist', 'assets', dir), err => {
+    if (err) {
+      console.log('first')
+      fs.rmdir(path.join(__dirname, 'project-dist', 'assets', dir), { recursive: true }, () => {
+        fs.mkdir(path.join(__dirname, 'project-dist', 'assets', dir), () => {
+          fs.readdir(path.join(__dirname, 'assets', dir), (err, files) => {
+            if (err) console.log(err.message)
+            for (let i in files) {
+              copyAssets(path.join(__dirname, 'project-dist', 'assets', dir, files[i]), path.join(__dirname, 'assets', dir, files[i]))
+            }
+          })
+        })
+      })
+    }
+    else {
+      fs.readdir(path.join(__dirname, 'assets', dir), (err, files) => {
+        if (err) console.log(err.message)
+        for (let i in files) {
+          copyAssets(path.join(__dirname, 'project-dist', 'assets', dir, files[i]), path.join(__dirname, 'assets', dir, files[i]))
+        }
+      })
+    }
+  })
+}
+
+const copyAssets = (toCopy, fromCopy) => {
+  fs.copyFile(fromCopy, toCopy, err => {
+    if (err) console.log(err.message);
+  })
 }
