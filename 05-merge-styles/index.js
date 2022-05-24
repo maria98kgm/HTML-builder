@@ -8,7 +8,14 @@ fs.readdir(css_path, (err, files) => {
   if (err) console.error(err.message);
   const all_files = files;
   for (let i in all_files) {
-    if (path.extname(all_files[i]) == '.css') editFile(all_files[i], i);
+    if (path.extname(all_files[i]) == '.css') {
+      fs.stat(path.join(css_path, all_files[i]), (err, stats) => {
+        if (err) console.error(err.message);
+        else if (stats.isFile()) {
+          editFile(all_files[i], i);
+        }
+      })
+    }
   }
 })
 
