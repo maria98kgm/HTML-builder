@@ -1,48 +1,39 @@
 const path = require('path');
 const fs =  require('fs');
 
-let template_data = '';
-
-const templateStream = fs.createReadStream(path.join(__dirname, 'template.html'), 'utf-8');
-templateStream.on('data', chunk => template_data += chunk);
-templateStream.on('error', err => console.log(err.message));
-templateStream.on('end', () => {
-  fs.mkdir(path.join(__dirname, 'project-dist'), err => {
-    if (err) {
-      fs.rmdir(path.join(__dirname, 'project-dist'), () => {
-        fs.mkdir(path.join(__dirname, 'project-dist'), () => {
-          readTemplate();
-          readCss();
-          readAssets();
-        })
+fs.mkdir(path.join(__dirname, 'project-dist'), err => {
+  if (err) {
+    fs.rmdir(path.join(__dirname, 'project-dist'), { recursive: true }, () => {
+      fs.mkdir(path.join(__dirname, 'project-dist'), () => {
+        readTemplate();
+        readCss();
+        readAssets();
       })
-    }
-    else {
-      readTemplate();
-      readCss();
-      readAssets();
-    }
-  })
+    })
+  }
+  else {
+    readTemplate();
+    readCss();
+    readAssets();
+  }
 })
 
 const readTemplate = () => {
-  let lines = template_data.split('\r\n');
-  for (let i in lines) {
-    if (lines[i].includes('{')) {
-      let tag = lines[i].split(/{{(.*?)}}/);
-      fs.readFile(path.join(__dirname, 'components', `${tag[1]}.html`), 'utf8', (err, data) => {
-        if (err) console.log(err.message);
-        lines[i] = data;
-        editFile(lines);
-      })
+  let templateStream = fs.createReadStream(path.join(__dirname, 'template.html'), 'utf-8');
+  templateStream.on('data', chunk => {
+    let splitted = chunk.split('\r\n');
+    for (let i in splitted) {
+      if (splitted[i].includes('{')) {
+        let tag = splitted[i].split(/{{(.*?)}}/).filter(x => !x.includes(' ') && x !== '');
+        fs.readFile(path.join(__dirname, 'components', `${tag[0]}.html`), 'utf-8', (err, content) => {
+          if (err) console.log(err.message);
+          splitted[i] = splitted[i].replace(`{{${tag[0]}}}`, content);
+          fs.writeFile(path.join(__dirname, 'project-dist', `index.html`), splitted.join('\r\n'), err => {
+            if (err) console.log(err.message);
+          })
+        })
+      }
     }
-  }
-}
-
-const editFile = (lines) => {
-  let file = lines.join('\r\n');
-  fs.writeFile(path.join(__dirname, 'project-dist', 'index.html'), file, err => {
-    if (err) console.log(err.message)
   })
 }
 
